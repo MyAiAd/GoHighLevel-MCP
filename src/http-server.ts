@@ -391,17 +391,20 @@ class GHLMCPHttpServer {
     this.app.post('/sse', handleSSE);
     // Admin: create or reattach tenant by GHL locationId (idempotent)
 // Admin: create or reattach tenant by GHL locationId (idempotent)
-this.app.post('/api/admin/create-tenant', async (req: express.Request, res: express.Response) => {
+// Admin: create or reattach tenant by GHL locationId (idempotent)
+this.app.post('/api/admin/create-tenant', async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     const auth = (req.headers['authorization'] || '').toString();
     const m = auth.match(/^Bearer\s+(.+)$/i);
     const token = m?.[1]?.trim();
 
     if (!process.env.ADMIN_SECRET) {
-      return res.status(500).json({ error: 'ADMIN_SECRET not set' });
+      res.status(500).json({ error: 'ADMIN_SECRET not set' });
+      return;
     }
     if (!token || token !== process.env.ADMIN_SECRET) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const {
@@ -413,9 +416,13 @@ this.app.post('/api/admin/create-tenant', async (req: express.Request, res: expr
       ghlVersion
     } = req.body || {};
 
-    if (!name) return res.status(400).json({ error: 'Missing name' });
+    if (!name) {
+      res.status(400).json({ error: 'Missing name' });
+      return;
+    }
     if (!ghlApiKey || !ghlLocationId) {
-      return res.status(400).json({ error: 'Missing ghlApiKey or ghlLocationId' });
+      res.status(400).json({ error: 'Missing ghlApiKey or ghlLocationId' });
+      return;
     }
 
     const pool = db();
@@ -505,7 +512,7 @@ this.app.post('/api/admin/create-tenant', async (req: express.Request, res: expr
 
     await pool.query('commit');
 
-    return res.json({
+    res.json({
       ok: true,
       isNewTenant,
       tenant: { id: tenantId, name },
@@ -518,10 +525,9 @@ this.app.post('/api/admin/create-tenant', async (req: express.Request, res: expr
       await db().query('rollback');
     } catch {}
     console.error('[admin/create-tenant] error:', e);
-    return res.status(500).json({ error: e?.message ?? 'Server error' });
+    res.status(500).json({ error: e?.message ?? 'Server error' });
   }
-});
-    
+});    
     // Root endpoint with server info
     this.app.get('/', (req, res) => {
       res.json({
