@@ -15,25 +15,26 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import * as dotenv from 'dotenv';
 
-import { GHLApiClient } from './clients/ghl-api-client';
-import { ContactTools } from './tools/contact-tools';
-import { ConversationTools } from './tools/conversation-tools';
-import { BlogTools } from './tools/blog-tools';
-import { OpportunityTools } from './tools/opportunity-tools';
-import { CalendarTools } from './tools/calendar-tools';
-import { EmailTools } from './tools/email-tools';
-import { LocationTools } from './tools/location-tools';
-import { EmailISVTools } from './tools/email-isv-tools';
-import { SocialMediaTools } from './tools/social-media-tools';
-import { MediaTools } from './tools/media-tools';
-import { ObjectTools } from './tools/object-tools';
-import { AssociationTools } from './tools/association-tools';
-import { CustomFieldV2Tools } from './tools/custom-field-v2-tools';
-import { WorkflowTools } from './tools/workflow-tools';
-import { SurveyTools } from './tools/survey-tools';
-import { StoreTools } from './tools/store-tools';
+import { GHLApiClient } from './clients/ghl-api-client.js';
+import { ContactTools } from './tools/contact-tools.js';
+import { ConversationTools } from './tools/conversation-tools.js';
+import { BlogTools } from './tools/blog-tools.js';
+import { OpportunityTools } from './tools/opportunity-tools.js';
+import { CalendarTools } from './tools/calendar-tools.js';
+import { EmailTools } from './tools/email-tools.js';
+import { LocationTools } from './tools/location-tools.js';
+import { EmailISVTools } from './tools/email-isv-tools.js';
+import { SocialMediaTools } from './tools/social-media-tools.js';
+import { MediaTools } from './tools/media-tools.js';
+import { ObjectTools } from './tools/object-tools.js';
+import { AssociationTools } from './tools/association-tools.js';
+import { CustomFieldV2Tools } from './tools/custom-field-v2-tools.js';
+import { WorkflowTools } from './tools/workflow-tools.js';
+import { SurveyTools } from './tools/survey-tools.js';
+import { StoreTools } from './tools/store-tools.js';
 import { ProductsTools } from './tools/products-tools.js';
-import { GHLConfig } from './types/ghl-types';
+import type { GHLConfig } from './types/ghl-types.js';
+
 
 // Load environment variables
 dotenv.config();
