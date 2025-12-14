@@ -419,39 +419,62 @@ this.app.post('/api/admin/create-tenant', async (req, res) => {
 
     const pool = db();
 
-    // Generate tenant API key (raw shown once)
-    const rawKey = crypto.randomBytes(24).toString('hex');
-    const keyHash = crypto.createHash('sha256').update(rawKey, 'utf8').digest('hex');
-
     await pool.query('begin');
 
-    // IMPORTANT: try to find an existing tenant by ghlLocationId (idempotent)
+    // Check if tenant exists by ghlLocationId
     const existing = await pool.query(
       `select tenant_id from tenant_secrets where ghl_location_id = $1 limit 1`,
       [ghlLocationId]
     );
 
     let tenantId: string;
+    let rawKey: string;
+    let isNewTenant = false;
 
     if (existing.rows[0]?.tenant_id) {
+      // EXISTING TENANT - reuse existing tenant and key
       tenantId = existing.rows[0].tenant_id;
-      // Optional: keep tenant name in sync (handy)
+      
+      // Update tenant name
       await pool.query(`update tenants set name = $1 where id = $2`, [name, tenantId]);
+      
+      // Get existing API key for this tenant/label combination
+      const existingKey = await pool.query(
+        `select key_hash from api_keys where tenant_id = $1 and label = $2 limit 1`,
+        [tenantId, label]
+      );
+      
+      if (existingKey.rows[0]) {
+        // Return message that tenant exists (don't show key for security)
+        rawKey = '[EXISTING_KEY_NOT_SHOWN]';
+      } else {
+        // Create new key for this label
+        rawKey = crypto.randomBytes(24).toString('hex');
+        const keyHash = crypto.createHash('sha256').update(rawKey, 'utf8').digest('hex');
+        await pool.query(
+          `insert into api_keys (tenant_id, key_hash, label) values ($1, $2, $3)`,
+          [tenantId, keyHash, label]
+        );
+      }
     } else {
+      // NEW TENANT
+      isNewTenant = true;
       const tenantRes = await pool.query(
         `insert into tenants (name) values ($1) returning id`,
         [name]
       );
       tenantId = tenantRes.rows[0].id;
+      
+      // Generate new API key
+      rawKey = crypto.randomBytes(24).toString('hex');
+      const keyHash = crypto.createHash('sha256').update(rawKey, 'utf8').digest('hex');
+      await pool.query(
+        `insert into api_keys (tenant_id, key_hash, label) values ($1, $2, $3)`,
+        [tenantId, keyHash, label]
+      );
     }
 
-    // Store hashed API key for this tenant
-    await pool.query(
-      `insert into api_keys (tenant_id, key_hash, label) values ($1, $2, $3)`,
-      [tenantId, keyHash, label]
-    );
-
-    // Upsert secrets by GHL locationId (THIS is where your ON CONFLICT goes)
+    // Upsert secrets by GHL locationId
     await pool.query(
       `
       insert into tenant_secrets (
@@ -483,9 +506,11 @@ this.app.post('/api/admin/create-tenant', async (req, res) => {
 
     return res.json({
       ok: true,
+      isNewTenant,
       tenant: { id: tenantId, name },
       apiKey: rawKey,
-      n8nHeader: `Authorization: Bearer ${rawKey}`
+      n8nHeader: rawKey !== '[EXISTING_KEY_NOT_SHOWN]' ? `Authorization: Bearer ${rawKey}` : '[USE_EXISTING_KEY]',
+      message: isNewTenant ? 'New tenant created' : 'Existing tenant updated'
     });
   } catch (e: any) {
     try {
@@ -495,7 +520,6 @@ this.app.post('/api/admin/create-tenant', async (req, res) => {
     return res.status(500).json({ error: e?.message ?? 'Server error' });
   }
 });
-
 
     // Root endpoint with server info
     this.app.get('/', (req, res) => {
