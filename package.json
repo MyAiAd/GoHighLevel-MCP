@@ -2,17 +2,22 @@
   "name": "@mastanley13/ghl-mcp-server",
   "version": "1.0.0",
   "description": "GoHighLevel MCP Server for Claude Desktop and ChatGPT integration",
+  "type": "module",
   "main": "dist/server.js",
   "bin": {
-    "ghl-mcp-server": "dist/server.js"
+    "ghl-mcp-server": "dist/http-server.js"
   },
-  "files": ["dist/", "README.md", "package.json"],
+  "files": [
+    "dist/",
+    "README.md",
+    "package.json"
+  ],
   "engines": {
     "node": ">=18.0.0"
   },
   "scripts": {
     "build": "tsc",
-    "dev": "nodemon --exec ts-node src/http-server.ts",
+    "dev": "nodemon --watch src --exec tsx src/http-server.ts",
     "start": "node dist/http-server.js",
     "start:stdio": "node dist/server.js",
     "start:http": "node dist/http-server.js",
@@ -24,7 +29,12 @@
     "test:coverage": "jest --coverage",
     "lint": "tsc --noEmit"
   },
-  "keywords": ["mcp", "gohighlevel", "chatgpt", "api"],
+  "keywords": [
+    "mcp",
+    "gohighlevel",
+    "chatgpt",
+    "api"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
