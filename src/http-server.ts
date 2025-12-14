@@ -34,6 +34,8 @@ import { SurveyTools } from './tools/survey-tools.js';
 import { StoreTools } from './tools/store-tools.js';
 import { ProductsTools } from './tools/products-tools.js';
 import type { GHLConfig } from './types/ghl-types.js';
+import crypto from 'crypto';
+import { db } from './db.js';
 
 
 // Load environment variables
@@ -351,6 +353,7 @@ class GHLMCPHttpServer {
       }
     });
 
+
     // SSE endpoint for ChatGPT MCP connection
     const handleSSE = async (req: express.Request, res: express.Response) => {
       const sessionId = req.query.sessionId || 'unknown';
@@ -386,6 +389,113 @@ class GHLMCPHttpServer {
     // Handle both GET and POST for SSE (MCP protocol requirements)
     this.app.get('/sse', handleSSE);
     this.app.post('/sse', handleSSE);
+    // Admin: create or reattach tenant by GHL locationId (idempotent)
+this.app.post('/api/admin/create-tenant', async (req, res) => {
+  try {
+    const auth = (req.headers['authorization'] || '').toString();
+    const m = auth.match(/^Bearer\s+(.+)$/i);
+    const token = m?.[1]?.trim();
+
+    if (!process.env.ADMIN_SECRET) {
+      return res.status(500).json({ error: 'ADMIN_SECRET not set' });
+    }
+    if (!token || token !== process.env.ADMIN_SECRET) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const {
+      name,
+      label = 'primary',
+      ghlApiKey,
+      ghlLocationId,
+      ghlBaseUrl,
+      ghlVersion
+    } = req.body || {};
+
+    if (!name) return res.status(400).json({ error: 'Missing name' });
+    if (!ghlApiKey || !ghlLocationId) {
+      return res.status(400).json({ error: 'Missing ghlApiKey or ghlLocationId' });
+    }
+
+    const pool = db();
+
+    // Generate tenant API key (raw shown once)
+    const rawKey = crypto.randomBytes(24).toString('hex');
+    const keyHash = crypto.createHash('sha256').update(rawKey, 'utf8').digest('hex');
+
+    await pool.query('begin');
+
+    // IMPORTANT: try to find an existing tenant by ghlLocationId (idempotent)
+    const existing = await pool.query(
+      `select tenant_id from tenant_secrets where ghl_location_id = $1 limit 1`,
+      [ghlLocationId]
+    );
+
+    let tenantId: string;
+
+    if (existing.rows[0]?.tenant_id) {
+      tenantId = existing.rows[0].tenant_id;
+      // Optional: keep tenant name in sync (handy)
+      await pool.query(`update tenants set name = $1 where id = $2`, [name, tenantId]);
+    } else {
+      const tenantRes = await pool.query(
+        `insert into tenants (name) values ($1) returning id`,
+        [name]
+      );
+      tenantId = tenantRes.rows[0].id;
+    }
+
+    // Store hashed API key for this tenant
+    await pool.query(
+      `insert into api_keys (tenant_id, key_hash, label) values ($1, $2, $3)`,
+      [tenantId, keyHash, label]
+    );
+
+    // Upsert secrets by GHL locationId (THIS is where your ON CONFLICT goes)
+    await pool.query(
+      `
+      insert into tenant_secrets (
+        tenant_id,
+        ghl_api_key,
+        ghl_location_id,
+        ghl_base_url,
+        ghl_version
+      )
+      values ($1, $2, $3, $4, $5)
+      on conflict (ghl_location_id)
+      do update set
+        ghl_api_key   = excluded.ghl_api_key,
+        tenant_id     = excluded.tenant_id,
+        ghl_base_url  = excluded.ghl_base_url,
+        ghl_version   = excluded.ghl_version,
+        updated_at    = now()
+      `,
+      [
+        tenantId,
+        ghlApiKey,
+        ghlLocationId,
+        ghlBaseUrl || 'https://services.leadconnectorhq.com',
+        ghlVersion || '2021-07-28'
+      ]
+    );
+
+    await pool.query('commit');
+
+    return res.json({
+      ok: true,
+      tenant: { id: tenantId, name },
+      apiKey: rawKey,
+      n8nHeader: `Authorization: Bearer ${rawKey}`
+    });
+  } catch (e: any) {
+    try {
+      await db().query('rollback');
+    } catch {}
+    console.error('[admin/create-tenant] error:', e);
+    return res.status(500).json({ error: e?.message ?? 'Server error' });
+  }
+});
+
 
     // Root endpoint with server info
     this.app.get('/', (req, res) => {
