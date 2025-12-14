@@ -13,7 +13,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import * as dotenv from 'dotenv';
 
-import { GHLApiClient } from './clients/ghl-api-client';
+import { GHLApiClient } from './clients/ghl-api-client.js';
 import { ContactTools } from './tools/contact-tools.js';
 import { ConversationTools } from './tools/conversation-tools.js';
 import { BlogTools } from './tools/blog-tools.js';
@@ -30,7 +30,7 @@ import { CustomFieldV2Tools } from './tools/custom-field-v2-tools.js';
 import { WorkflowTools } from './tools/workflow-tools.js';
 import { SurveyTools } from './tools/survey-tools.js';
 import { StoreTools } from './tools/store-tools.js';
-import { GHLConfig } from './types/ghl-types';
+import type { GHLConfig } from './types/ghl-types.js';
 import { ProductsTools } from './tools/products-tools.js';
 import { PaymentsTools } from './tools/payments-tools.js';
 import { InvoicesTools } from './tools/invoices-tools.js';
