@@ -390,7 +390,8 @@ class GHLMCPHttpServer {
     this.app.get('/sse', handleSSE);
     this.app.post('/sse', handleSSE);
     // Admin: create or reattach tenant by GHL locationId (idempotent)
-this.app.post('/api/admin/create-tenant', async (req, res) => {
+// Admin: create or reattach tenant by GHL locationId (idempotent)
+this.app.post('/api/admin/create-tenant', async (req: express.Request, res: express.Response) => {
   try {
     const auth = (req.headers['authorization'] || '').toString();
     const m = auth.match(/^Bearer\s+(.+)$/i);
@@ -520,7 +521,7 @@ this.app.post('/api/admin/create-tenant', async (req, res) => {
     return res.status(500).json({ error: e?.message ?? 'Server error' });
   }
 });
-
+    
     // Root endpoint with server info
     this.app.get('/', (req, res) => {
       res.json({
